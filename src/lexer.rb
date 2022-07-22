@@ -74,8 +74,7 @@ class Lexer
                 STDERR.puts "couldn't parse #{code.inspect}"
                 exit 1
             end
-            p code
-            p tokens
+            p tokens[-1]
             if code == ""
                 return tokens
             end
