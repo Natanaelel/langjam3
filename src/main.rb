@@ -4,30 +4,44 @@ file_name, *argv = ARGV
 
 p file_name
 p ARGV
-def run_code(source)
-    puts "true"
-    puts "source: #{source.lines.reverse.join.inspect}"
-    eval source.lines.reverse.join
+
+code = file_name
+
+
+
+# run_code File.read(file_name)
+
+def die_func
+    exit 69
 end
 
+def run(code)
 
-Lexer.new()
+    alias 🧀 puts
+    alias ☀️ die_func
+    eval code
+    #imagine a syntax where {} was replaced by () and () were optinal,
+    #like ruby but cleaner, and more "beautiful"
+    # eval code.gsub(/\(|\)/,?(=>?{, ?)=>?}) # that might work idk
+    # that is look very werird
+end
+run %{🧀 'hello'
+☀️
+🧀 'hello' }
 
-run_code File.read(file_name)
 =begin
-the parsing isn't, unless you make a stack lang, "parsed = tokens = source.split' '"
-same
-o i did a bit but im not the best
->lets write top to bottom
-ok
->nice
-what theme do you think it's gonna be?
-what would you like it to be?
+we could [
+    interpret
+    transpile
+    give up
+    <s>compile</s>
+]
+"beautiful assembly"
+"beautiful" <- take that word
+syntax, no noise
+I like unicode, ☺
 
-idk bottom to top exec might be cool
-no idea either
-sounds stupid
-lol
-fixed
-easy clap
+where?
+use the session chat it's kinda better
+live share tab, and below theres session chat
 =end
