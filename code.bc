@@ -1,0 +1,34 @@
+
+def die_func (
+    exit 69
+)
+
+def run(code) (
+
+    alias 🧀 puts
+    alias ☀️ die_func
+    # imagine a syntax where {} was replaced by () and () were optinal,
+    # like ruby but cleaner, and more "beautiful"
+    eval code.tr "()", "{}" # wait tr
+    #just example code in "bc"
+)
+run "🧀 'hello'"
+️
+-----------------------️
+
+--- testing syntax ---
+
+Glang  = require "./glang.js"
+fs = require "fs"
+def  test_programs()(
+	programs = fs.readFileSync "./test_programs.txt" .toString.split /\s*\*\*\*\s*/ .filter(x => x != "")
+
+	for(const program of programs){
+		let g = new Glang(program)
+		g.run()
+		console.log(g.stack.pretty())
+		console.log(g.stack.top())
+		console.log("")
+
+	)
+)
