@@ -2,7 +2,7 @@ a,b=*$<
 a=a.upcase.scan(/[A-Z]/).tally.map{_1+b*_2}.sort
 (a.map(&:size).max-1).downto(0){|i|puts a.map{_1[i]||' '}.join.rstrip}
 
-
+=begin
 a, b= ⏩
 a=a.upcase.scan(/[A-Z]/).tally.map((x,y)→x+b*y).sort
 (a.map(.size).max-1).downto(0, i → puts a.map(a → a[i] ∨ ' ' ).join.rstrip)
@@ -38,3 +38,5 @@ f  = -> a,l,c{
 }
 f[a,1000,[]]
 p sol
+
+=end
