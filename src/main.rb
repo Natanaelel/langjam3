@@ -1,33 +1,46 @@
 require_relative "lexer.rb"
-#ah didn't know that
-file_name, *argv = ARGV
+require_relative "natanaaaaellaleelalellelelll_parser.rb"
+require_relative "transpiler.rb"
 
-p file_name
+file_in_name = ARGV.shift
+file_out_name = ARGV.shift
+
+p file_in_name
+p file_out_name
 p ARGV
 
-code = file_name
+code = File.read file_in_name
+
+p code
+
+tokens = Lexer.new(code).lex
+puts p," -- tokens --",p
+p tokens
+tree = Parser.new(tokens).parse
+puts p," -- tree --",p
+p tree
+transpiled = Transpiler.new(tree).transpile
+# p transpiled
+File.write(file_out_name, transpiled)
 
 
+# def die_func
+#     exit 69
+# end
 
-# run_code File.read(file_name)
+# def run(code)
 
-def die_func
-    exit 69
-end
-
-def run(code)
-
-    alias 🧀 puts
-    alias ☀️ die_func
-    eval code
+#     alias 🧀 puts
+#     alias ☀️ die_func
+#     eval code
     #imagine a syntax where {} was replaced by () and () were optinal,
     #like ruby but cleaner, and more "beautiful"
     # eval code.gsub(/\(|\)/,?(=>?{, ?)=>?}) # that might work idk
     # that is look very werird
-end
-run %{🧀 'hello'
-☀️
-🧀 'hello' }
+# end
+# run %{🧀 'hello'
+# ☀️
+# 🧀 'hello' }
 
 =begin
 we could [
@@ -41,7 +54,4 @@ we could [
 syntax, no noise
 I like unicode, ☺
 
-where?
-use the session chat it's kinda better
-live share tab, and below theres session chat
 =end

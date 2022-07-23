@@ -1,3 +1,5 @@
+require_relative "parser.rb"
+
 # todo
 # haha nothing
 # 🤔
@@ -6,15 +8,16 @@ class Lexer
     
     attr :tokens
 
-    def initialize(source)
+    def initialize(source, debug = false)
         @source = source
+        @debug = debug
     end
 
     def lex()
 
         tokens = []
         code = @source.dup
-        p code
+        p code if @debug
         brackets = []
         next_can_be_identifier = true
         last_was_whitespace = false         # to be able to separate a .b / a(.b) and a&b / a &b 
@@ -54,15 +57,15 @@ class Lexer
             elsif ~/\A`((\\.|[^\\`])*)`/ # shell string, backtick
                 tokens << ["shell", $1]
                 code = $'
-            elsif ~/\A&(?!\d)\w+/ && (last_was_whitespace || next_can_be_identifier)
-                tokens << ["amp_identifier", $&]
+            elsif ~/\A&((?!\d)\w+)/ && (last_was_whitespace || next_can_be_identifier) # &puts
+                tokens << ["amp_identifier", $1]
                 code = $'
                 next_can_be_identifier = false
-            elsif ~/\A\.(?!\d)\w+/ && next_can_be_identifier
-                tokens << ["dot_identifier", $&]
+            elsif ~/\A\.((?!\d)\w+)/ && next_can_be_identifier #.to_a
+                tokens << ["dot_identifier", $1]
                 code = $'
                 next_can_be_identifier = false
-            elsif ~/\A\?(.)/m && next_can_be_identifier
+            elsif ~/\A\?(.)/m && next_can_be_identifier # ?a
                 tokens << ["char", $1]
                 code = $'
                 next_can_be_identifier = false
@@ -75,17 +78,20 @@ class Lexer
             elsif ~/\A\$./ #  $<
                 tokens << ["special_dollar", $&]
                 code = $'
-            elsif ~/\A\$\w+/
+            elsif ~/\A\$\w+/ # $asd
                 tokens << ["dollar", $&]
                 code = $'
             elsif ~/\A(do|while|end|until|loop|def|end|lambda|if|else|case|when|elsif|in)(?!\w)/
                 tokens << ["keyword", $&]
                 code = $'
+            elsif ~/\A(true|false)(?!\w)/
+                tokens << ["bool", $&]
+                code = $'
             elsif ~/\A(?!\d)\w+/ # asd
                 tokens << ["identifier", $&]
                 code = $'
                 next_can_be_identifier = false
-            elsif ~/\A\./ # .to_s
+            elsif ~/\A\./ # .
                 tokens << ["dot", "."]
                 code = $'
             elsif ~/\A\s+/ # whitespace
@@ -111,22 +117,28 @@ class Lexer
                 code = $'
                 next_can_be_identifier = false
             elsif ~/\A\(/
-                tokens << ["left_round", "("]
+                tokens << ["left_paren", "("]
                 code = $'
                 next_can_be_identifier = true
             elsif ~/\A\)/
-                tokens << ["right_round", ")"]
+                tokens << ["right_paren", ")"]
                 code = $'
                 next_can_be_identifier = false
             else
                 STDERR.puts "couldn't parse #{code}"
                 exit 1
             end
-            p tokens[-1]
+            p tokens[-1] if @debug
             last_was_whitespace = tokens[-1][0] == "whitespace"
             if code == ""
-                return @tokens = tokens
+                return @tokens = tokens.map{|k,v|
+                    {
+                        "type" => k, "value" => v
+                    }
+                }
             end
+
+
         end
 
     end
@@ -143,8 +155,8 @@ class Lexer
             when "string_interpolate_middle"; "}#{value}\#{"
             when "string_interpolate_end"; "}#{value}\""
             when "shell"; "`#{value}`"
-            when "amp_identifier"; value
-            when "dot_identifier"; value
+            when "amp_identifier"; "&" + value
+            when "dot_identifier"; "." + value
             when "special_dollar"; value
             when "dollar"; value
             when "keyword"; value
@@ -153,13 +165,14 @@ class Lexer
             when "right_curly"; value
             when "left_square"; value
             when "right_square"; value
-            when "left_round"; value
-            when "right_round"; value
+            when "left_paren"; value
+            when "right_paren"; value
             when "whitespace"; value
             when "comment_single"; value
             when "comment_multi"; value
             when "semicolon"; value
             when "char"; "?#{value}"
+            when "bool"; value
             else; "'''other #{value}'''"
             end
 
@@ -168,27 +181,36 @@ class Lexer
         }.join(sep)
     end
 end
-#fixed it
-# ok
-# could not parse the {
-#I see no output when I run command it seems like
-#where is temp.rb
 
-# it's not there because you exit 1 after couldn't parse
-#try again now
+#look in temp.rb
+# we need to parse so we can:
+# a.map(&puts) -> a.map(&method(:puts))
+# *but* also with arguments
+# a.map(.to_i(1)) -> a.map(lambda{|asd|asd.to_i(1))))
 
-code = File.read("./ugly-bin/sample3.rb")
+# code = File.read("./ugly-bin/sample3.rb")
 
-out_file = File.open("./ugly-bin/temp.rb", "w")
-lexer = Lexer.new(code)
-lexer.lex
-tokens = lexer.tokens
+# code = "3+1*2"
+# # code = "a.map(.to_i(2))"
+# #what are you working on ?
+# ### I am successful in my parsing, go from there?
+# # ok
 
-out_file.write tokens.map{|line|line.inspect}*$/ + "
+# out_file = File.open("./ugly-bin/temp.rb", "w")
+# lexer = Lexer.new(code)
+# lexer.lex
+# tokens = lexer.tokens
+# p tokens
+# ast = Parser.new(tokens)
+# ast.parse().map{|x| p x}
 
-"+lexer.to_s+"
-
-" + lexer.to_s(" ")#{|x|"#{x}"}
 
 
-# "int", "float", "raw_string", "string", "shell", "amp_identifier", "operator", "special_dollar", "dollar", "keyword", "identifier", "dot", "left_curly", "right_curly", "left_square", "right_square", "left_round", "right_round"
+# out_file.write tokens.map{|line|line.inspect}*$/ + "
+
+# "+lexer.to_s+"
+
+# " + lexer.to_s(" "){|x|"(#{x} haha)"}
+
+
+# "int", "float", "raw_string", "string", "shell", "amp_identifier", "operator", "special_dollar", "dollar", "keyword", "identifier", "dot", "left_curly", "right_curly", "left_square", "right_square", "left_paren", "right_paren"
