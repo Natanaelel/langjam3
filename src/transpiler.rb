@@ -33,21 +33,35 @@ class Transpiler
         when "array"
             "[#{node["value"].map{|x| f x }.join(", ")}]"
         when "assignment"
-            p ["ass",node]
             f(node["left"]) + " = " + f(node["right"])
         when "nil"
             ""
         when "binary_operation"
             "(" + f(node["left"]) + " " + node["operator"] + " " + f(node["right"]) + ")"
         when "call"
-            f(node["func"]) + "(" + node["args"].map{|x| f x }.join(", ") + ")"
+            f(node["func"]) + ".call(" + node["args"].map{|x| f x }.join(", ") + ")"
         when "string"; "\"#{node["value"]}\""
         when "string_interpolate_start"; "\"#{node["value"]}#\{"
         when "string_interpolate_middle"; "}#{node["value"]}#\{"
         when "string_interpolate_end"; "}#{node["value"]}\""
+        when "prefix"
+            if %w"++ --".include?(node["operator"])
+                operand = f(node["right"])
+                return "(#{operand} #{node["operator"] == "++" ? "+" : "-"}= 1)"
+            end
+            "(#{node["operator"]} #{f(node["right"])})"
+        when "postfix"
+            if %w"++ --".include?(node["operator"])
+                operand = f(node["left"])
+                op = node["operator"] == "++" ? "+" : "-"
+                return "((#{operand} #{op}= 1) #{op} -1)"
+            end
+            "<postfix>"
+        when "amp_identifier"
+            node["value"]
         else
             p node
-            "no"
+            p "no"
         end
     end
 

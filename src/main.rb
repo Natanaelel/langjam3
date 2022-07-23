@@ -23,7 +23,9 @@ puts p," -- tree --",p
 p tree
 transpiled = Transpiler.new(tree).transpile
 # p transpiled
+transpiled = File.read("src/runtime.fixer.thing.rb") + "\n" + transpiled
 File.write(file_out_name, transpiled)
+puts "🧀 END OF BS -- START OF 🧀!\n"
 puts `ruby #{file_out_name} #{ARGV * " "}`
 
 

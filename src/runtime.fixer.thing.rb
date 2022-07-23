@@ -36,4 +36,3 @@ p = lambify("p")
 # this code runs, try it!
 
 ## end of runtime.fixer.thing.rb
-"abc sd k kjlh kjlashdfkajs jkhfk   12 n jk".split().map(puts)

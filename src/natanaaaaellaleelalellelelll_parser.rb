@@ -8,6 +8,7 @@ PRECEDENCE = {
     "=="=> 9, "!="=> 9,
     "+"=> 12, "-"=> 12,
     "*"=> 13, "/"=> 13, "%"=> 13,
+    "++"=> 14, "--"=> 14,
 }
 
 
@@ -42,7 +43,7 @@ class Parser
         p ["expr maybemethod", expression]
         expression = maybe_binary(expression, 0)  #this hsould eat = this fails
         p ["expr binary", expression]
-        # p "expr: #{expression}"
+        p "expr: #{expression}"
         return expression
         # call is making them all nil
     end
@@ -50,9 +51,6 @@ class Parser
         return {"type"=> "nil"} if @tokens.size == 0 
         
         first = @tokens[0]
-        # p ["in parse atom", first ]# ["identifier", "a"]
-        #input is array, not hash
-        # ok
         type = first["type"]
         puts "first: #{first}"
         if type == "left_paren"
@@ -95,11 +93,26 @@ class Parser
             }
         end
         if type =~ /comment/
-            next_token() # no next? we probably don't need to save the comments lol
+            next_token()
             return parseAtom()
         end
-# I lost access to terminla  works! lets fix transpiler
-
+        if type =~ /newline/
+            next_token()
+            return parseAtom()
+        end 
+        if type == "operator"
+            puts "prefix"
+            next_token()
+            return {
+                "type" => "prefix",
+                "operator" => first["value"],
+                "right" => parseAtom()
+            }
+        end
+        if type == "amp_identifier"
+            next_token()
+            return first
+        end
         puts("didn't parse:")
         puts(first)
         throw "Didn't parse an atom"
@@ -134,7 +147,7 @@ class Parser
         skipNextValue(start) if start
         
         while @tokens.length > 0
-            p ["curr parsed", parsed, @tokens[0]]
+            # p ["curr parsed", parsed, @tokens[0]]
             # skipAllSpace() # here ofc
             break if String === eend ? isNextValue(eend) : @tokens[0]["value"] =~ eend #this should stop v
             
@@ -143,8 +156,8 @@ class Parser
             else
                 # it trying to delimit the comment? idk
                 # now it says it collected /demilited "a", but then keeps looking, doesn't see newline
-                 p ["is next val", separator_value, isNextValue(separator_value)]
-                p ["real next val", @tokens[0]]
+                #  p ["is next val", separator_value, isNextValue(separator_value)]
+                # p ["real next val", @tokens[0]]
                 if(separator_value && isNextValue(separator_value)) # where is this false  #this from being false ri ght?
                     # nil is false i think if it's false that won't run
                     # nil is just false in ruby
@@ -244,7 +257,12 @@ class Parser
         else; false
         end 
     end
-
+    def is_prefix_op(op)
+        %w"+ - ++ -- ~ !".include?(op)
+    end
+    def is_prefix_only_op(op)
+        %w"~ !".include?(op)
+    end
     def maybe_call(expression, parens_needed = true)
         
         if isNextType("left_paren") 
@@ -253,7 +271,14 @@ class Parser
             return ret
         elsif !parens_needed
             skipped_space = skipAllHoriSpace()
+            p "@tokens:"
+            p @tokens
+            non_whitespace = @tokens.drop_while{|token| token["type"] == "whitespace"}
             if expression["type"] == "identifier" && @tokens[0]["type"] != "operator" && @tokens[0]["value"] !~ /[\n;\.]/
+                return parse_args_no_paren(expression)
+            # elsif expression["type"] == "identifier" && skipped_space && is_prefix_op(non_whitespace[0]["value"]) && non_whitespace[1]["type"] !~ /(whitespace|newline)/
+            elsif expression["type"] == "identifier" && (is_prefix_only_op(non_whitespace[0]["value"]) || (skipped_space && is_prefix_op(non_whitespace[0]["value"]))) && non_whitespace[1]["type"] !~ /(whitespace|newline)/
+                puts "prefix arg no paren"
                 return parse_args_no_paren(expression)
             else
                 return expression
@@ -261,7 +286,7 @@ class Parser
                 did_skip_newline = false
             (did_skip_newline ||= @tokens[0]["value"] =~ /\n/; skipNextType("whitespace")) while isNextType("whitespace")
             
-            p ["in maybe call check token 0", @tokens[0]]
+            # p ["in maybe call check token 0", @tokens[0]]
             # expression is kinda @tokens[-1] (previous head)
             if expression["type"] == "identifier" && !did_skip_newline && (isNextType("identifier") || isNextType("literal")) # what?? next type is dot wait
                 puts "function without parens named: #{expression["value"]}"
@@ -317,11 +342,11 @@ class Parser
         }
     end
     def maybe_method(expression)
-        return isNextType("dot") ? parse_method(expression) : expression
+        p @tokens
+        return isNextType("dot") ? maybe_method(parse_method(expression)) : expression
     end
     def parse_method(func)
         skipNextType("dot")
-        # p @tokens[0]
         throw "method name is not a valid name lol" unless isNextType("identifier")
         name = next_token()
         return {
@@ -354,7 +379,7 @@ class Parser
         puts "parsing name #{func} args, no parens"
         args = []
         loop do
-            if (isNextType("whiteSpace") && @tokens[0]["value"] =~ /\n/) || isNextValue(";") || isNextValue(".")
+            if isNextType("newline") || isNextValue(";") || isNextValue(".")
                 return {
                     "type" => "call",
                     "func" => func,
@@ -382,67 +407,40 @@ class Parser
         end
 
         # delimited(nil, /[\n;]/, [","], method(:parseExpression))
+        
     end
 end
 
-# tokens = 
-# [
-    
-#     # ["identifier", "f"],
-#     # ["left_paren", "("],
-#     # ["right_paren", ")"],
-#     # ["identifier", "a"],
-#     # ["dot", "."],
-#     # ["identifier", "map"],
-#     # ["left_paren", "("],
-#     # ["dot_identifier", ".to_i"],
-#     # ["left_paren", "("],
-#     # ["int", "2"],
-#     # ["right_paren", ")"],
-#     # ["right_paren", ")"]
-# ].map{|k,v|
-#     {"type" => k, "value" => v}
-# }
+=begin
+# valid examples 
+*a =
+*a,b =
+a, =
+a,*b=
+a,*,b=  wtf is this idk it is valid
+a,*_,b= ?
+(a,)=
+(a,(b,c)),*d= [[a,[b,c]],d,d,d]
+idk how to parse something like this
 
-# # code = "a.map(.to_i(2))"
-# code = "f()"
+*a,b=[1, * [1,2,3]]
+trying to parse
+*a,b
+just sorta give a all the values and strip it down 1 by 1 (for b)
+wdym=
+so like initially you get a = [1,1,2,3]
+and then you see there's b, so you rip one value off a, 
+only considering the parsing, ruby will run the transpiled code
+1 sec turning translucent background off
+i'm playing csgo, so brb lol
 
-# parser = Parser.new tokens
 
-# parsed = parser.parse
+ident = \w+
 
-# require "json"
-# puts JSON.pretty_generate parsed
+assignment_pattern =
+      ident "," ?
+    | ident ("," ident) * "," ?
+    | "*" ident
+    | "(" assignment_pattern ")"
 
-# do you somewhat get how that^^^ works?
-# mainly maybe_...()
-# yeah
-#I want to transpile that v to ruby again
-# alright
-# can you find anything else that needs anything
-# I don't think this parser will work for the samples we have, ...yet
-# {
-#     "type": "method",
-#     "self": {
-#         "type": "identifier",
-#         "value": "a"
-#     },
-#     "name": {
-#         "type": "identifier",
-#         "value": "map"
-#     },
-#     "args": [
-#         {
-#             "type": "dot_identifier",
-#             "args": [
-#                 {
-#                     "type": "literal",
-#                     "value": {
-#                         "type": "int",
-#                         "value": "2"
-#                     }
-#                 }
-#             ]
-#         }
-#     ]
-# }
+=end

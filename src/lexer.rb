@@ -43,6 +43,7 @@ class Lexer
             elsif ~/\A"((\\.|(?!#\{)[^\\"])*?)"/ # normal string, double quote "abc"
                 tokens << ["string", $1]
                 code = $'
+                next_can_be_identifier = false
             elsif ~/\A"((\\.|[^\\"])*?)#\{/ # "abc#{
                 tokens << ["string_interpolate_start", $1]
                 code = $'
@@ -69,9 +70,21 @@ class Lexer
                 tokens << ["char", $1]
                 code = $'
                 next_can_be_identifier = false
-                # !== === ... <=> -> .. != =~ == || && ** <= >= = ! ~ ^ | & % / * - + ? : < > ,
+=begin
+            elsif ~/\A(\+\+|--|~|!)/ # prefix operators, problem with -?
+                tokens << ["prefix_operator", $&]   
+can we decide that calling functions wihtout args require parens?
+or is that non-consistent
+it is non-consistent...
+                code = $'
+                next_can_be_identifier = true
+=end
+                #when see prefix op, treat left as nil, pretend it is infix?, lets try
+                #have to separate + and - from infix
+                #in `p -a` `p - a`
+                # !== === ... <=> -> .. != =~ !~ == || && ** <= >= = ^ | & % / * - + ? : < > ,
                 # &&= ||= **= += -= *= /= %=  &= |= ^= << >> <<= >>=
-            elsif ~/\A(!==|===|&&=|<<=|>>=|\|\|=|\*\*=|\.\.\.|\.\.|<=>|<<|>>|->|\+=|-=|\*=|-=|\/=|%=|&=|\|=|\^=|<=|>=|!=|=~|==|\|\||&&|\*\*|<|>|=|!|~|\^|\||&|%|\/|\*|-|\+|\?|:|,)/ # operators
+            elsif ~/\A(\+\+|--|~|!(?![=~]))/ || ~/\A(!==|===|&&=|<<=|>>=|\|\|=|\*\*=|\.\.\.|\.\.|<=>|<<|>>|->|\+=|-=|\*=|-=|\/=|%=|&=|\|=|\^=|<=|>=|!=|=~|!~|==|\|\||&&|\*\*|<|>|=|\^|\||&|%|\/|\*|-|\+|\?|:|,)/ # operators
                 tokens << ["operator", $&]
                 code = $'
                 next_can_be_identifier = true
@@ -93,6 +106,10 @@ class Lexer
                 next_can_be_identifier = false
             elsif ~/\A\./ # .
                 tokens << ["dot", "."]
+                code = $'
+            elsif ~/\A\r?\n/ # newline
+                # go over all whitespace refs in naaa_parser
+                tokens << ["newline", $&]
                 code = $'
             elsif ~/\A\s+/ # whitespace
                 tokens << ["whitespace", $&]

@@ -1,0 +1,1 @@
+"abc sd k kjlh kjlashdfkajs jkhfk   12 n jk".split.map(&puts) # wow, in our syntax is lit!
