@@ -20,6 +20,7 @@ class Parser
         @tokens
         parsed = []
         while @tokens.size > 0
+            p "trying to parse next expr:"
             expression = parseExpression()
             p "expression:"
             p expression
@@ -33,13 +34,15 @@ class Parser
 
     def parseExpression() 
         expression = parseAtom()
+        p ["expr moment", expression]
         expression = maybe_call(expression)
         expression = maybe_method(expression)
-        expression = maybe_binary(expression, 0)
+        expression = maybe_binary(expression, 0)  #this hsould eat = this fails
+        p "expr: #{expression}"
         return expression
     end
     def parseAtom()
-        return {"type": "nil"} if @tokens.size == 0 
+        return {"type"=> "nil"} if @tokens.size == 0 
         
         first = @tokens[0]
         p ["in parse atom", first ]# ["identifier", "a"]
@@ -81,6 +84,20 @@ class Parser
             next_token()
             return parseAtom()
         end
+        if first["value"] == "[" 
+            values = delimited("[", "]", [","], method(:parseExpression))
+            p "values:"
+            p values
+            return {
+                "type" => "array",
+                "value" => values
+            }
+        end
+        if type =~ /comment/
+            next_token() # no next? we probably don't need to save the comments lol
+            return parseAtom()
+        end
+# I lost access to terminla  works! lets fix transpiler
 
         puts("didn't parse:")
         puts(first)
@@ -114,26 +131,32 @@ class Parser
     def delimited(start, eend, (separator_value, separator_type), parser_func)
         parsed = []
         first_iteration = true
-        skipNextValue(start)
+        skipNextValue(start) if start
         
         while @tokens.length > 0
-            
-            break if isNextValue(eend)
+            skipAllSpace()
+            break if Array === eend ? eend.any?{|x| isNextValue(x)} : isNextValue(eend)
             
             if(first_iteration)
                 first_iteration = false
             else
-                if(separator_value && isNextValue(separator_value))
+                # sep_value is prio
+                # doesn't reach
+                p ["is next val", separator_value, isNextValue(separator_value)]
+                if(separator_value && isNextValue(separator_value)) # where is this false
+                    # nil is false i think if it's false that won't run
+                    # nil is just false in ruby
                     puts("skipping next '#{separator_value}'")
                     skipNextValue(separator_value)
                 else
                     puts("skipping next '#{separator_type}'")
                     puts(separator_value)
-                    skipNextType(separator_type)
+                    skipNextType(separator_type) # skip nil?
                 end
             end
-            break if(isNextValue(eend))
-    
+            
+
+            break if Array === eend ? eend.any?{|x| isNextValue(x)} : isNextValue(eend)
             expression = parser_func.()
             parsed.push(expression)
         
@@ -143,14 +166,23 @@ class Parser
         return parsed
     end
     
+    def skipAllSpace()
+        skipNextType("whitespace") while isNextType("whitespace")
+    end
+
     def maybe_binary(left, precedence)
-        is_operator = isNextType("operator")
+        # ignore space
+        skipNextType("whitespace") while isNextType("whitespace")
+        is_operator = isNextType("operator") && !isNextValue(",") #master bug remover large brain comment errors now lol smh
         operator = @tokens[0]
 
+        p ["in maybe binary is operator?", is_operator]
         if(is_operator)
             p operator["value"]
             other_precedence = PRECEDENCE[operator["value"]]
-
+            # comma isn't operator right? it's syntax
+            # you didn't pass in the type for the separator
+            # maybe that mess it up
             if(other_precedence > precedence)
                 if(operator["value"] == "?")
                     condition = left
@@ -186,7 +218,29 @@ class Parser
     end
     
     def maybe_call(expression)
-        return isNextType("left_paren") ? parse_call(expression) : expression
+        # return isNextType("left_paren") ? parse_call(expression) : expression
+        if isNextType("left_paren") 
+            return parse_call(expression)
+        else
+            skipNextType("whitespace") while isNextType("whitespace")
+            if isNextType("identifier") || isNextType("literal")
+                # but not delimited this time
+                # hm is the end symbol always [\n;] ?
+                # then we have to replace ; with \n or not
+                # we can add manually
+                #not var, Class Class === var ) == ( var instanceof class)
+                # o ok
+                # you can do
+                # case "ASD" when String # because case uses ===
+
+                args = delimited(nil, ["\n", ";"], [","], method(:parseExpression))
+                return {
+                    "type" => "call",
+                    "func" => func,
+                    "args" => args
+                }
+            end       
+        end
     end
     
     def parse_call(func)

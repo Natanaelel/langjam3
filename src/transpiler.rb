@@ -28,6 +28,14 @@ class Transpiler
             node["value"]
         when "literal"
             f node["value"]
+        when "array"
+            "[#{node["value"].map{|x| f x }.join(", ")}]"
+        when "assignment"
+            f(node["left"]) + " = " + f(node["right"])
+        when "nil"
+            ""
+        when "binary_operation"
+            "(" + f(node["left"]) + " " + node["operator"] + " " + f(node["right"]) + ")"
         else
             p node
             "no"
