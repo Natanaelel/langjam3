@@ -210,6 +210,11 @@ class Parser
                 atom = parseAtom()
                 right = maybe_method(maybe_call(maybe_binary(atom, other_precedence))) #lol if it works, I'm happy as a cheese
                 # CHEEEEEEEEEEEEEEEEEEEEESE 1 10001 11!!!!!
+                # I didn't think we had to parse this much, ah well
+                # it's ok you sound like ...
+                # :)
+                # ok i go now i come back tomorrow 5:43 am, it's already tomorrow
+                # lol
                 binary = {
                     "type" => "binary_operation",
                     "operator" => operator["value"],
