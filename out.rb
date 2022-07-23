@@ -37,9 +37,6 @@ p = lambify("p")
 
 ## end of runtime.fixer.thing.rb
 ten = 10.method("to_s")
-print.call((["Hello", "World!"].join(", ") + "!"))
+print.call(((["Hello", "World!"] * ", ") + "!"))
 puts.call()
-ten.call(10)
-p.call(ten.call(10))
-a = ten.call(2)
-p.call(a)
+p.call([2, 10].map(10.method("to_s")))

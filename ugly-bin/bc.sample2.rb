@@ -1,7 +1,5 @@
 ten = 10.&to_s
-print ["Hello", "World!"].join(", ") + "!";puts()
+print ["Hello", "World!"] * (", ") + "!";puts()
 
-ten(10)
-p ten 10
-a = ten 2
-p a
+p [2,10].map 10.&to_s
+

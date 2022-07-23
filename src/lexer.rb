@@ -107,6 +107,7 @@ it is non-consistent...
             elsif ~/\A\./ # .
                 tokens << ["dot", "."]
                 code = $'
+                next_can_be_identifier = true
             elsif ~/\A\r?\n/ # newline
                 # go over all whitespace refs in naaa_parser
                 tokens << ["newline", $&]
