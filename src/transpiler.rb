@@ -23,8 +23,10 @@ class Transpiler
             method_name = node["name"]
             arguments = node["args"].map{|x| f(x) }
             self_name = rand_name()
-            "&lambda{ | %s | %s.%s(%s) }" % [self_name, self_name, method_name, arguments.join(", ")]
-        when "int", /string/, "float"
+            res = "lambda{ | %s | %s.%s(%s) }" % [self_name, self_name, method_name, arguments.join(", ")]
+            res = "&" + res if node["as_arg"]
+            res
+        when "int", "float"
             node["value"]
         when "literal"
             f node["value"]
@@ -39,6 +41,10 @@ class Transpiler
             "(" + f(node["left"]) + " " + node["operator"] + " " + f(node["right"]) + ")"
         when "call"
             f(node["func"]) + "(" + node["args"].map{|x| f x }.join(", ") + ")"
+        when "string"; "\"#{node["value"]}\""
+        when "string_interpolate_start"; "\"#{node["value"]}#\{"
+        when "string_interpolate_middle"; "}#{node["value"]}#\{"
+        when "string_interpolate_end"; "}#{node["value"]}\""
         else
             p node
             "no"

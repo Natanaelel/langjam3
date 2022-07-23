@@ -1,15 +1,15 @@
 PRECEDENCE = {
-    "=": 2,
-    "||": 4,
-    "?": 3,
-    ":": 3,
-    "&&": 5,
-    "<": 10, ">": 10, "<=": 10, ">=": 10,
-    "==": 9, "!=": 9,
-    "+": 12, "-": 12,
-    "*": 13, "/": 13, "%": 13,
+    "="=> 2,
+    "||"=> 4,
+    "?"=> 3,
+    "=>"=> 3,
+    "&&"=> 5,
+    "<"=> 10, ">"=> 10, "<="=> 10, ">="=> 10,
+    "=="=> 9, "!="=> 9,
+    "+"=> 12, "-"=> 12,
+    "*"=> 13, "/"=> 13, "%"=> 13,
 }
-PRECEDENCE.transform_keys!(&:to_s)
+
 
 class Parser
     def initialize(tokens)
@@ -32,11 +32,12 @@ class Parser
         @tokens[0] && @tokens.shift()
     end
 
-    def parseExpression() 
-        expression = parseAtom()
+    def parseExpression(as_arg = false) 
+        expression = parseAtom(as_arg)
+        # expression = parse_args_no_paren(expression)
         p ["expr parseatom", expression]
-        expression = maybe_call(expression)
-        p ["expr maybecall", expression]
+        expression = maybe_call(expression, call_need_parens(expression))
+        p ["expr maybecall", expression, call_need_parens(expression)]
         expression = maybe_method(expression)
         p ["expr maybemethod", expression]
         expression = maybe_binary(expression, 0)  #this hsould eat = this fails
@@ -45,7 +46,7 @@ class Parser
         return expression
         # call is making them all nil
     end
-    def parseAtom()
+    def parseAtom(as_arg = false)
         return {"type"=> "nil"} if @tokens.size == 0 
         
         first = @tokens[0]
@@ -74,7 +75,8 @@ class Parser
             return {
                 "type" => "dot_identifier",
                 "name" => first["value"],
-                "args" => args
+                "args" => args,
+                "as_arg" => as_arg
             }
         end
         if type == "identifier"
@@ -175,6 +177,11 @@ class Parser
     def skipAllSpace()
         skipNextType("whitespace") while isNextType("whitespace")
     end
+    def skipAllHoriSpace()
+        skipped = false
+        (skipped = true; skipNextType("whitespace")) while isNextType("whitespace") && !(@tokens[0]["value"] =~ /\n/)
+        skipped
+    end
 
     def maybe_binary(left, precedence)
         # ignore space
@@ -208,7 +215,9 @@ class Parser
 
                 skipNextType("operator")
                 atom = parseAtom()
-                right = maybe_method(maybe_call(maybe_binary(atom, other_precedence))) #lol if it works, I'm happy as a cheese
+                right = maybe_binary(atom, other_precedence)
+                right = maybe_call(right, true)
+                right = maybe_method(right)
                 # CHEEEEEEEEEEEEEEEEEEEEESE 1 10001 11!!!!!
                 # I didn't think we had to parse this much, ah well
                 # it's ok you sound like ...
@@ -229,22 +238,32 @@ class Parser
         return left
     end
     
-    def maybe_call(expression)
-        # p ["original exprr", expression]
+    def isLiteral(expr)
+        case expr
+        when "int", "float", /string/; true
+        else; false
+        end 
+    end
 
-        # ["original exprr", {"type"=>"array", "value"=>[nil, {"type"=>"binary_operation", "operator"=>"+", "left"=>nil, "right"=>nil}, nil]}]
-        # I think it's trying to call the array, bruh this isn't K/maybe scala or something
-        #  bruhtime is early 5am
-        # oonfot not tired wanna code 
-        # return isNextType("left_paren") ? parse_call(expression) : expression
+    def maybe_call(expression, parens_needed = true)
+        
         if isNextType("left_paren") 
-            return parse_call(expression)
-        else
-            skipNextType("whitespace") while isNextType("whitespace")
+            ret = parse_call(expression)
+            p "ret from maybe_call with parens: #{ret}"
+            return ret
+        elsif !parens_needed
+            skipped_space = skipAllHoriSpace()
+            if expression["type"] == "identifier" && @tokens[0]["type"] != "operator" && @tokens[0]["value"] !~ /[\n;\.]/
+                return parse_args_no_paren(expression)
+            else
+                return expression
+            end
+                did_skip_newline = false
+            (did_skip_newline ||= @tokens[0]["value"] =~ /\n/; skipNextType("whitespace")) while isNextType("whitespace")
             
             p ["in maybe call check token 0", @tokens[0]]
             # expression is kinda @tokens[-1] (previous head)
-            if expression["type"] == "identifier" && (isNextType("identifier") || isNextType("literal")) # what?? next type is dot wait
+            if expression["type"] == "identifier" && !did_skip_newline && (isNextType("identifier") || isNextType("literal")) # what?? next type is dot wait
                 puts "function without parens named: #{expression["value"]}"
                 # aaaaaaa
                 # I think it works now, new error
@@ -264,18 +283,33 @@ class Parser
                 # case "ASD" when String # because case uses ===
 
                 args = delimited(nil, /[\n;]/, [","], method(:parseExpression))
-                return {
+                ret = {
                     "type" => "call",
                     "func" => expression,
                     "args" => args
                 }
+                p "ret from maybe_call no parens: #{ret}"
+                return ret
             end       
         end
+        p "ret from maybe_call no call: #{expression}"
         return expression
+
+    end
+    def call_need_parens(expr)
+        puts "need parens?"
+        p expr
+        res = case expr["type"]
+            when "identifier"; false
+            else; true
+        end
+        p res
+        return res
     end
     
     def parse_call(func)
-        args = delimited("(", ")", [","], method(:parseExpression))
+        # args = delimited("(", ")", [","], method(:parseExpression))
+        args = delimited("(", ")", [","], lambda{parseExpression(true)})
         return {
             "type" => "call",
             "func" => func,
@@ -294,7 +328,11 @@ class Parser
             "type" => "method",
             "self" => func,
             "name" => name["value"],
-            "args" => parse_args({
+            "args" => isNextType("left_paren") ? parse_args({
+                "type" => "method",
+                "self" => func,
+                "name" => name
+            })["args"] : parse_args_no_paren({
                 "type" => "method",
                 "self" => func,
                 "name" => name
@@ -311,6 +349,39 @@ class Parser
                 "args" => []
             }
         end
+    end
+    def parse_args_no_paren(func)
+        puts "parsing name #{func} args, no parens"
+        args = []
+        loop do
+            if (isNextType("whiteSpace") && @tokens[0]["value"] =~ /\n/) || isNextValue(";") || isNextValue(".")
+                return {
+                    "type" => "call",
+                    "func" => func,
+                    "args" => args
+                }
+            end
+            if isNextType("whiteSpace")
+                next_token()
+                next
+            end
+            expr = parseExpression(true)
+            args << expr
+            puts "parsed no-paren arg: #{expr}"
+            skipAllHoriSpace()
+            if isNextValue(",")
+                next_token()
+            else
+                return {
+                    "type" => "call",
+                    "func" => func,
+                    "args" => args
+                }
+            end
+
+        end
+
+        # delimited(nil, /[\n;]/, [","], method(:parseExpression))
     end
 end
 
