@@ -13,17 +13,17 @@ PRECEDENCE.transform_keys!(&:to_s)
 
 class Parser
     def initialize(tokens)
-        @tokens = tokens
+        @tokens = tokens.select{|x| x["type"] != "comment_single"}
     end
 
     def parse
         @tokens
         parsed = []
         while @tokens.size > 0
-            p "trying to parse next expr:"
+            # p "trying to parse next expr:"
             expression = parseExpression()
-            p "expression:"
-            p expression
+            # p "expression:"
+            # p expression
             parsed << expression
         end
         return {"type" => "program", "program" => parsed}
@@ -34,23 +34,26 @@ class Parser
 
     def parseExpression() 
         expression = parseAtom()
-        p ["expr moment", expression]
+        p ["expr parseatom", expression]
         expression = maybe_call(expression)
+        p ["expr maybecall", expression]
         expression = maybe_method(expression)
+        p ["expr maybemethod", expression]
         expression = maybe_binary(expression, 0)  #this hsould eat = this fails
-        p "expr: #{expression}"
+        p ["expr binary", expression]
+        # p "expr: #{expression}"
         return expression
+        # call is making them all nil
     end
     def parseAtom()
         return {"type"=> "nil"} if @tokens.size == 0 
         
         first = @tokens[0]
-        p ["in parse atom", first ]# ["identifier", "a"]
+        # p ["in parse atom", first ]# ["identifier", "a"]
         #input is array, not hash
         # ok
         type = first["type"]
         puts "first: #{first}"
-        puts "type: #{type}"
         if type == "left_paren"
             next_token()
             expression = parseExpression()
@@ -68,7 +71,6 @@ class Parser
         if type == "dot_identifier"
             skipNextType("dot_identifier")
             args = parse_args(first)["args"]
-            p args
             return {
                 "type" => "dot_identifier",
                 "name" => first["value"],
@@ -76,7 +78,6 @@ class Parser
             }
         end
         if type == "identifier"
-            p "it's identifier!"
             skipNextType("identifier")
             return first
         end
@@ -86,8 +87,6 @@ class Parser
         end
         if first["value"] == "[" 
             values = delimited("[", "]", [","], method(:parseExpression))
-            p "values:"
-            p values
             return {
                 "type" => "array",
                 "value" => values
@@ -109,7 +108,6 @@ class Parser
         if @tokens[0]&.[]("type") == type
             return @tokens[0] && @tokens.shift()
         end
-        p type
         throw "Invalid token to skip"
     end
     
@@ -134,16 +132,18 @@ class Parser
         skipNextValue(start) if start
         
         while @tokens.length > 0
-            skipAllSpace()
-            break if Array === eend ? eend.any?{|x| isNextValue(x)} : isNextValue(eend)
+            p ["curr parsed", parsed, @tokens[0]]
+            # skipAllSpace() # here ofc
+            break if String === eend ? isNextValue(eend) : @tokens[0]["value"] =~ eend #this should stop v
             
             if(first_iteration)
                 first_iteration = false
             else
-                # sep_value is prio
-                # doesn't reach
-                p ["is next val", separator_value, isNextValue(separator_value)]
-                if(separator_value && isNextValue(separator_value)) # where is this false
+                # it trying to delimit the comment? idk
+                # now it says it collected /demilited "a", but then keeps looking, doesn't see newline
+                 p ["is next val", separator_value, isNextValue(separator_value)]
+                p ["real next val", @tokens[0]]
+                if(separator_value && isNextValue(separator_value)) # where is this false  #this from being false ri ght?
                     # nil is false i think if it's false that won't run
                     # nil is just false in ruby
                     puts("skipping next '#{separator_value}'")
@@ -155,14 +155,20 @@ class Parser
                 end
             end
             
-
-            break if Array === eend ? eend.any?{|x| isNextValue(x)} : isNextValue(eend)
+            # I think isNextValue() here it is exact, but the token is any whitespace
+            # break if Array === eend ? eend.any?{|x| isNextValue(x)} : isNextValue(eend) #check here no need to check down there
+            break if String === eend ? isNextValue(eend) : @tokens[0]["value"] =~ eend #check here no need to check down there
+            #  method(:parseExpression) f[] === f.() === f.call()
             expression = parser_func.()
+            # break unless expression
             parsed.push(expression)
         
         end
+        # think it's that nil you passed earlier to delimited no, that was start
+        
     
-        skipNextValue(eend)
+        # skipNextValue(eend)
+        next_token()
         return parsed
     end
     
@@ -176,7 +182,7 @@ class Parser
         is_operator = isNextType("operator") && !isNextValue(",") #master bug remover large brain comment errors now lol smh
         operator = @tokens[0]
 
-        p ["in maybe binary is operator?", is_operator]
+        # p ["in maybe binary is operator?", is_operator]
         if(is_operator)
             p operator["value"]
             other_precedence = PRECEDENCE[operator["value"]]
@@ -202,7 +208,13 @@ class Parser
 
                 skipNextType("operator")
                 atom = parseAtom()
-                right = maybe_call(maybe_binary(atom, other_precedence))
+                right = maybe_method(maybe_call(maybe_binary(atom, other_precedence))) #lol if it works, I'm happy as a cheese
+                # CHEEEEEEEEEEEEEEEEEEEEESE 1 10001 11!!!!!
+                # I didn't think we had to parse this much, ah well
+                # it's ok you sound like ...
+                # :)
+                # ok i go now i come back tomorrow 5:43 am, it's already tomorrow
+                # lol
                 binary = {
                     "type" => "binary_operation",
                     "operator" => operator["value"],
@@ -218,12 +230,30 @@ class Parser
     end
     
     def maybe_call(expression)
+        # p ["original exprr", expression]
+
+        # ["original exprr", {"type"=>"array", "value"=>[nil, {"type"=>"binary_operation", "operator"=>"+", "left"=>nil, "right"=>nil}, nil]}]
+        # I think it's trying to call the array, bruh this isn't K/maybe scala or something
+        #  bruhtime is early 5am
+        # oonfot not tired wanna code 
         # return isNextType("left_paren") ? parse_call(expression) : expression
         if isNextType("left_paren") 
             return parse_call(expression)
         else
             skipNextType("whitespace") while isNextType("whitespace")
-            if isNextType("identifier") || isNextType("literal")
+            
+            p ["in maybe call check token 0", @tokens[0]]
+            # expression is kinda @tokens[-1] (previous head)
+            if expression["type"] == "identifier" && (isNextType("identifier") || isNextType("literal")) # what?? next type is dot wait
+                puts "function without parens named: #{expression["value"]}"
+                # aaaaaaa
+                # I think it works now, new error
+                # check for nil?
+                # puts "monoid in a category of endofunctors #"
+                # name = next_token() # 
+                # p name
+                # p @tokens[0,2]
+                
                 # but not delimited this time
                 # hm is the end symbol always [\n;] ?
                 # then we have to replace ; with \n or not
@@ -233,14 +263,15 @@ class Parser
                 # you can do
                 # case "ASD" when String # because case uses ===
 
-                args = delimited(nil, ["\n", ";"], [","], method(:parseExpression))
+                args = delimited(nil, /[\n;]/, [","], method(:parseExpression))
                 return {
                     "type" => "call",
-                    "func" => func,
+                    "func" => expression,
                     "args" => args
                 }
             end       
         end
+        return expression
     end
     
     def parse_call(func)

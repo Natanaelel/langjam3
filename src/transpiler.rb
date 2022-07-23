@@ -31,11 +31,14 @@ class Transpiler
         when "array"
             "[#{node["value"].map{|x| f x }.join(", ")}]"
         when "assignment"
+            p ["ass",node]
             f(node["left"]) + " = " + f(node["right"])
         when "nil"
             ""
         when "binary_operation"
             "(" + f(node["left"]) + " " + node["operator"] + " " + f(node["right"]) + ")"
+        when "call"
+            f(node["func"]) + "(" + node["args"].map{|x| f x }.join(", ") + ")"
         else
             p node
             "no"
