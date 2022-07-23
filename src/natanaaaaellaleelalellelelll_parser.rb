@@ -96,7 +96,7 @@ class Parser
             next_token()
             return parseAtom()
         end
-        if type =~ /newline/
+        if type == "newline" || type == "semicolon"
             next_token()
             return parseAtom()
         end 
@@ -199,7 +199,7 @@ class Parser
     def maybe_binary(left, precedence)
         # ignore space
         skipNextType("whitespace") while isNextType("whitespace")
-        is_operator = isNextType("operator") && !isNextValue(",") #master bug remover large brain comment errors now lol smh
+        is_operator = isNextType("operator") && !isNextValue(",") #master bug remover large brain
         operator = @tokens[0]
 
         # p ["in maybe binary is operator?", is_operator]
@@ -229,7 +229,8 @@ class Parser
                 skipNextType("operator")
                 atom = parseAtom()
                 right = maybe_binary(atom, other_precedence)
-                right = maybe_call(right, true)
+                need_parens = operator["value"] !~ /^=/
+                right = maybe_call(right, need_parens)
                 right = maybe_method(right)
                 # CHEEEEEEEEEEEEEEEEEEEEESE 1 10001 11!!!!!
                 # I didn't think we had to parse this much, ah well
@@ -264,6 +265,7 @@ class Parser
         %w"~ !".include?(op)
     end
     def maybe_call(expression, parens_needed = true)
+        p ["in maybe_call", expression, parens_needed]
         
         if isNextType("left_paren") 
             ret = parse_call(expression)
@@ -273,6 +275,7 @@ class Parser
             skipped_space = skipAllHoriSpace()
             p "@tokens:"
             p @tokens
+            return expression if @tokens.empty?
             non_whitespace = @tokens.drop_while{|token| token["type"] == "whitespace"}
             if expression["type"] == "identifier" && @tokens[0]["type"] != "operator" && @tokens[0]["value"] !~ /[\n;\.]/
                 return parse_args_no_paren(expression)
@@ -347,22 +350,31 @@ class Parser
     end
     def parse_method(func)
         skipNextType("dot")
-        throw "method name is not a valid name lol" unless isNextType("identifier")
-        name = next_token()
-        return {
-            "type" => "method",
-            "self" => func,
-            "name" => name["value"],
-            "args" => isNextType("left_paren") ? parse_args({
+        throw "method name is not a valid name lol" unless isNextType("identifier") || isNextType("amp_identifier")
+        if isNextType("identifier")
+            name = next_token()
+            return {
                 "type" => "method",
                 "self" => func,
-                "name" => name
-            })["args"] : parse_args_no_paren({
-                "type" => "method",
+                "name" => name["value"],
+                "args" => isNextType("left_paren") ? parse_args({
+                    "type" => "method",
+                    "self" => func,
+                    "name" => name
+                })["args"] : parse_args_no_paren({
+                    "type" => "method",
+                    "self" => func,
+                    "name" => name
+                })["args"]
+            }
+        else
+            name = next_token()
+            return {
+                "type" => "amp_method",
                 "self" => func,
-                "name" => name
-            })["args"]
-        }
+                "name" => name["value"]
+            }    
+        end
     end
     def parse_args(func)
         if isNextType("left_paren")

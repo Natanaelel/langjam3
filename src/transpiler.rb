@@ -59,6 +59,11 @@ class Transpiler
             "<postfix>"
         when "amp_identifier"
             node["value"]
+        when "amp_method"
+            "%s.method(\"%s\")" % [
+                f(node["self"]),
+                node["name"]
+            ]
         else
             p node
             p "no"
