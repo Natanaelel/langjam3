@@ -21,7 +21,12 @@ class Array
     alias _old_all all?; def all(block = ->x{x}) = map(block).all?(&block)
 end
 class Integer
-    alias _old_times times; def times(block = nil) = block ? _old_times(&block) : _old_times
+    alias _old_times times
+    def times(block = nil) 
+        (0..self).each(&block)
+        # block ? _old_times(&block) : _old_times
+        _old_times(&block)
+    end
 end
 class Object
     def then(block)

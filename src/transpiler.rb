@@ -1,6 +1,7 @@
 class Transpiler
     def initialize(tree)
         @tree = tree
+        @use_bclib = false
     end
 
     def transpile
@@ -25,18 +26,30 @@ class Transpiler
             method_name = node["name"]
             arguments = node["args"].map{|x| f(x) }
             self_name = rand_name()
-            "lambda{ | %s | %s.%s(%s) }" % [self_name, self_name, method_name, arguments.join(", ")]
-        when "int", "float"
-            value
+            res = "lambda{ | %s | %s.%s(%s) }" % [self_name, self_name, method_name, arguments.join(", ")]
+            @use_bclib ? "Bunction.new(#{res})" : res
+        when "int"
+            @use_bclib ? "Bint.new(#{value})" : value
+        when "float"
+            @use_bclib ? "Bloat.new(#{value})" : value
         when "literal"
             f value
         when "array"
-            "[#{value.map{|x| f x }.join(", ")}]"
+            res = "[#{value.map{|x| f x }.join(", ")}]"
+            @use_bclib ? "Barray.new(#{res})" : res
         when "assignment"
             f(node["left"]) + " = " + f(node["right"])
         when "nil"
             "nil"
         when "binary_operation"
+            if @use_bclib
+                if node["operator"] == ".."
+                    return "Brange.inclusive(#{f(node["left"])}, #{f(node["right"])})"
+                end
+                if node["operator"] == "..."
+                    return "Brange.exclusive(#{f(node["left"])}, #{f(node["right"])})"
+                end
+            end
             "(" + f(node["left"]) + " " + node["operator"] + " " + f(node["right"]) + ")"
         when "call"
             # if node["args"].empty? && !node["parens"]
@@ -96,8 +109,14 @@ class Transpiler
         when "expressions"
             value.empty? ? "nil" : "(" + value.map{|x|f x}.join("; ") + ")"
         when "splat"
-            p node
+            # p node
             "*"  + f(value)
+        when "ternary"
+            "((#{f(node["condition"])}) ? (#{f(node["truthy"])}) : (#{f(node["falsy"])}))"
+        when "bool"
+            value
+        when "index"
+            "(#{f(node["self"])})[#{node["args"].map{|x|f x}.join(", ")}]"
         else
             puts "can't stringify"
             p node
@@ -109,60 +128,3 @@ class Transpiler
         "var_" + 20.times.map{rand 10}.join
     end
 end
-
-
-
-# {
-#     "type"=>"program",
-#     "program"=>[
-#         {
-#             "type"=>"method",
-#             "self"=>{"type"=>"identifier", "value"=>"a"}, "na
-# me"=>"map", "args"=>[{"type"=>"dot_identifier", :n
-# ame=>"to_s", :args=>[{"type"=>"literal", "value"=>
-# {"type"=>"int", "value"=>"16"}}]}]}]}
-
-# sum not string
-# somewhere I use : instead of =>
-# # from that vv
-# code = "a.map(.to_i(2))"
-# # lets put it all together main.rb
-# # a.map(&lambda{ | var_69690452667024246038 | var_69690452667024246038..to_i(2) })
-# tree = {
-#     "type": "program",
-#     "program": [
-#       {
-#         "type": "method",
-#         "self": {
-#           "type": "identifier",
-#           "value": "a"
-#         },
-#         "name": "map",
-#         "args": [
-#           {
-#             "type": "dot_identifier",
-#             "name": "to_i",
-#             "args": [
-#               {
-#                 "type": "literal",
-#                 "value": {
-#                   "type": "int",
-#                   "value": "2"
-#                 }
-#               }
-#             ]
-#           }
-#         ]
-#       }
-#     ]
-#   }
-
-# f = -> h {
-#     Hash === h ? h.transform_keys(&:to_s).transform_values(&f) : Array === h ? h.map(&f) : h
-# }
-
-# tree = f.(tree)
-
-# transpiler = Transpiler.new tree
-
-# puts transpiler.transpile

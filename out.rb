@@ -21,7 +21,12 @@ class Array
     alias _old_all all?; def all(block = ->x{x}) = map(block).all?(&block)
 end
 class Integer
-    alias _old_times times; def times(block = nil) = block ? _old_times(&block) : _old_times
+    alias _old_times times
+    def times(block = nil) 
+        (0..self).each(&block)
+        # block ? _old_times(&block) : _old_times
+        _old_times(&block)
+    end
 end
 class Object
     def then(block)
@@ -50,5 +55,7 @@ rand = lambify("rand")
 # this code runs, try it!
 
 ## end of runtime.fixer.thing.rb
-p.call([1, 2, 3].then(lambda{|*var_48238534831655715772| x, *y = var_48238534831655715772.size == 1 ? var_48238534831655715772[0] : var_48238534831655715772; [x, y] }))
-nil
+a = [1, 2, 3]
+a.each(puts)
+p.call(a.map(lambda{|x| x.to_s(2) }))
+5.times(lambda{|*var_04195502892990014427| puts.call("🧀") })
