@@ -35,3 +35,12 @@ then run
 ruby main.rb sourcefile outfile
 ```
 the transpiled ruby code will be put in outfile and automatically executed
+
+# more features
+most things doesn't work...<br>
+control flow with ternary / short circuit<br>
+strings<br>
+numbers<br>
+arrays<br>
+variables<br>
+math<br>

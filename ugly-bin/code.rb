@@ -28,34 +28,10 @@ anita ⬅️ bob # set anita to copy bob's stats
 🧀 anita # cheese declares anita 
 ☀️ # cheese die
 
-can you find some noisy ruby code? to test on as in not "beautiful"
-noisy as in bad? ugly?
-imma just get previous clash codes
 
-w️hat about ternary, do we fix?
-what is wrong with it? the extra spaces needed sometimes
-# no implicit mutation only reassignment? nah
-remove symbols and methods? that? have? trailing? questionmarks? and explaksfjlaskjfaslk! uniq!
-ye
-
-
-
-
-
-def die_func (
-    exit 69
-)
-
-def run(code) (
-
-    alias 🧀 puts
-    alias ☀️ die_func
-    # imagine a syntax where {} was replaced by () and () were optinal,
-    # like ruby but cleaner, and more "beautiful"
-    eval code.tr "()", "{}" # wait tr
-    #just example code in "bc"
-)
-run "🧀 'hello'"
+alias 🧀 puts
+alias ☀️ die_func
+🧀 'hello'
 ️
 -----------------------️
 
@@ -101,74 +77,3 @@ f((1)) == lambda{|*args| f(1,*args)}
 a.&to_s
 #instead of
 a.method(:to_s)
-# clean?
-# yeah i guess
-#basically syntax replaces keywords
-#basically & replaces "method"
-# so you can do both .f and &f
-#no, &f replaces method(:f)
-# .f replaces lambda{|bruh|bruh.f}
-
-# ok i see
-#that is 2 changes
-#any more cheese?
-#keywords
-#end -> stop
-# why egg
-
-#can we remove "def" ?
-#> make it death
-#I don't like keywords as "end", "}" is better but noisy still
-
-#I like js arrows
-f↝(args)
-f = (a, b) => a + b
-
-ok
-feta f(args)
-thats longer...
-nothing? indentation?
-no
-#I know
-
-if a == b
-	puts "somethings"
-ok
-def f(g)
-
-ok
-#better than ruby
-#transpiling ruby from ruby to ruby but butter?
-# it is similar
-# can we just remove all ruby keywords and make neccesary ones unicode symbols?
-
-# we can just reassign them to nil or something well maybe not keywords
-# something to 
-# so we dont replace string contents
-# and then back to ruby
-#basically just tokenize, replace some tokens, then back to ruby?
-if token == "method"
-	ident = rand_ident()
-	code = "lambda{ |#{ident}|   #{ident} . #{method} (*#{args} ) }" 
-end
-# yes
-# start?
-# make a list of changes to be made
-# method(:puts) -> &puts?
-a.map(&puts) #is then possible
-# isn't it .puts?
-what do you mean?
-↑↓←→↔↕ 
-
-def  test_programs()(
-	programs = fs.readFileSync("./test_programs.txt").to_s.split(/\s*\*\*\*\s*/).filter(x => x != "")
-
-	for(program in programs)(
-		g = Glang(program)
-		g.run
-		print(g.stack.pretty)
-		print(g.stack.top)
-		print("")
-
-	)
-)
