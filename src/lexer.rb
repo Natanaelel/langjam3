@@ -34,12 +34,15 @@ class Lexer
             elsif ~/\A([1-9][0-9]*|0)/ # int
                 tokens << ["int", $&]
                 code = $'
+                next_can_be_identifier = false
             elsif ~/\A([1-9][0-9]*|0)\.[0-9]+/ # float
                 tokens << ["float", $&]
                 code = $'
+                next_can_be_identifier = false
             elsif ~/\A'([^']*)'/ # raw string, single quote
                 tokens << ["raw_string", $1]
                 code = $'
+                next_can_be_identifier = false
             elsif ~/\A"((\\.|(?!#\{)[^\\"])*?)"/ # normal string, double quote "abc"
                 tokens << ["string", $1]
                 code = $'
@@ -48,13 +51,16 @@ class Lexer
                 tokens << ["string_interpolate_start", $1]
                 code = $'
                 brackets << "string"
+                next_can_be_identifier = true
             elsif ~/\A\}((\\.|[^\\"])*?)#\{/ && brackets[-1] == "string" # }abc#{
                 tokens << ["string_interpolate_middle", $1]
                 code = $'
+                next_can_be_identifier = true
             elsif ~/\A\}((\\.|[^\\"])*?)"/ && brackets[-1] == "string" # }abc"
                 tokens << ["string_interpolate_end", $1]
                 code = $'
                 brackets.pop
+                next_can_be_identifier = false
             elsif ~/\A`((\\.|[^\\`])*)`/ # shell string, backtick
                 tokens << ["shell", $1]
                 code = $'
@@ -112,12 +118,14 @@ it is non-consistent...
                 # go over all whitespace refs in naaa_parser
                 tokens << ["newline", $&]
                 code = $'
+                next_can_be_identifier = true
             elsif ~/\A\s+/ # whitespace
                 tokens << ["whitespace", $&]
                 code = $'
             elsif ~/\A;/ # semicolon
                 tokens << ["semicolon", ";"]
                 code = $'
+                next_can_be_identifier = true
             elsif ~/\A\{/
                 tokens << ["left_curly", "{"]
                 code = $'

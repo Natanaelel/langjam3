@@ -10,7 +10,32 @@ PRECEDENCE = {
     "*"=> 13, "/"=> 13, "%"=> 13,
     "++"=> 14, "--"=> 14,
 }
-
+PRECEDENCE = [
+    "[] []=",
+    "**",
+    "! ~ + -",
+    "* / %",
+    "+ -",
+    ">> <<",
+    "&",
+    "^ |",
+    "<= < > >=",
+    "<=> == === != =~ !~",
+    "&&",
+    "||",
+    ".. ...",
+    "? :",
+    "= %= { /= -= += |= &= >>= <<= *= &&= ||= **=",
+    "defined?",
+    "not",
+    "or and",
+    "if unless while until",
+    "begin end"
+].flat_map.with_index{|row, i|
+    row.split.map{|key|
+        [key, i]
+    }
+}.to_h
 
 class Parser
     def initialize(tokens)
@@ -18,7 +43,6 @@ class Parser
     end
 
     def parse
-        @tokens
         parsed = []
         while @tokens.size > 0
             # p "trying to parse next expr:"
@@ -41,7 +65,7 @@ class Parser
         p ["expr maybecall", expression, call_need_parens(expression)]
         expression = maybe_method(expression)
         p ["expr maybemethod", expression]
-        expression = maybe_binary(expression, 0)  #this hsould eat = this fails
+        expression = maybe_binary(expression, 0)
         p ["expr binary", expression]
         p "expr: #{expression}"
         return expression
@@ -52,6 +76,7 @@ class Parser
         
         first = @tokens[0]
         type = first["type"]
+        value = first["value"]
         puts "first: #{first}"
         if type == "left_paren"
             next_token()
@@ -72,7 +97,7 @@ class Parser
             args = parse_args(first)["args"]
             return {
                 "type" => "dot_identifier",
-                "name" => first["value"],
+                "name" => value,
                 "args" => args,
                 "as_arg" => as_arg
             }
@@ -85,7 +110,8 @@ class Parser
             next_token()
             return parseAtom()
         end
-        if first["value"] == "[" 
+        if value == "[" 
+            puts "delimited [ ] ,"
             values = delimited("[", "]", [","], method(:parseExpression))
             return {
                 "type" => "array",
@@ -101,15 +127,28 @@ class Parser
             return parseAtom()
         end 
         if type == "operator"
+
+            # check for (|args|body) function
+            puts "in prefix"
+            p value
+            if value == "|" || value == "||"
+                return parse_func()
+            end
+
+            # else prefix operator
             puts "prefix"
             next_token()
             return {
                 "type" => "prefix",
-                "operator" => first["value"],
+                "operator" => value,
                 "right" => parseAtom()
             }
         end
         if type == "amp_identifier"
+            next_token()
+            return first
+        end
+        if type == "special_dollar"
             next_token()
             return first
         end
@@ -130,6 +169,7 @@ class Parser
         if @tokens[0]&.[]("value") == value
             return @tokens[0] && @tokens.shift()
         end
+        puts "can't skip #{value}, next value is #{@tokens[0]&.[]("value")}"
         throw "Invalid value to skip"
     end
 
@@ -184,6 +224,8 @@ class Parser
     
         # skipNextValue(eend)
         next_token()
+        p @tokens[0]
+        "return from delimited"
         return parsed
     end
     
@@ -273,11 +315,12 @@ class Parser
             return ret
         elsif !parens_needed
             skipped_space = skipAllHoriSpace()
-            p "@tokens:"
-            p @tokens
+            # p "@tokens:"
+            # p @tokens
             return expression if @tokens.empty?
             non_whitespace = @tokens.drop_while{|token| token["type"] == "whitespace"}
-            if expression["type"] == "identifier" && @tokens[0]["type"] != "operator" && @tokens[0]["value"] !~ /[\n;\.]/
+            # if expression["type"] == "identifier" && !%w"operator dot newline semicolin right_square".include?(@tokens[0]["type"])
+            if expression["type"] == "identifier" && !%w"operator dot".include?(@tokens[0]["type"])
                 return parse_args_no_paren(expression)
             # elsif expression["type"] == "identifier" && skipped_space && is_prefix_op(non_whitespace[0]["value"]) && non_whitespace[1]["type"] !~ /(whitespace|newline)/
             elsif expression["type"] == "identifier" && (is_prefix_only_op(non_whitespace[0]["value"]) || (skipped_space && is_prefix_op(non_whitespace[0]["value"]))) && non_whitespace[1]["type"] !~ /(whitespace|newline)/
@@ -345,7 +388,7 @@ class Parser
         }
     end
     def maybe_method(expression)
-        p @tokens
+        # p @tokens
         return isNextType("dot") ? maybe_method(parse_method(expression)) : expression
     end
     def parse_method(func)
@@ -357,6 +400,7 @@ class Parser
                 "type" => "method",
                 "self" => func,
                 "name" => name["value"],
+                "parens" => isNextType("left_paren"),
                 "args" => isNextType("left_paren") ? parse_args({
                     "type" => "method",
                     "self" => func,
@@ -372,7 +416,13 @@ class Parser
             return {
                 "type" => "amp_method",
                 "self" => func,
-                "name" => name["value"]
+                "name" => name["value"],
+                "parens" => isNextType("left_paren"),
+                "args" => isNextType("left_paren") ? parse_args({
+                    "type" => "method",
+                    "self" => func,
+                    "name" => name
+                })["args"] : []
             }    
         end
     end
@@ -391,7 +441,7 @@ class Parser
         puts "parsing name #{func} args, no parens"
         args = []
         loop do
-            if isNextType("newline") || isNextValue(";") || isNextValue(".")
+            if isNextType("newline") || isNextValue(";") || isNextType("dot")# || isNextValue(")")
                 return {
                     "type" => "call",
                     "func" => func,
@@ -420,6 +470,53 @@ class Parser
 
         # delimited(nil, /[\n;]/, [","], method(:parseExpression))
         
+    end
+    def parse_func()
+        args = []
+        if @tokens[0]["value"] == "||"
+            args = []
+            next_token()
+        else
+            args = parse_func_args()
+        end
+        puts "args:"
+        p args
+        body = parseExpression()
+        return {
+            "type" => "func",
+            "args" => args,
+            "body" => body
+        }
+    end
+    def parse_func_args
+        next_token()
+        skipAllHoriSpace()
+        args = []
+        loop do
+            arg = nil
+            if isNextType("identifier") 
+                arg = @tokens[0]
+                next_token()
+            elsif isNextValue("*") # splat-argument
+                next_token()
+                skipAllHoriSpace()
+                arg = {
+                    "type" => "splat",
+                    "ident" => @tokens[0]
+                }
+                next_token()
+            end
+            args << arg
+            skipAllHoriSpace()
+            if isNextValue("|")
+                next_token()
+                return args
+            end
+            # p @tokens
+            skipAllHoriSpace()
+            skipNextValue(",")
+            skipAllHoriSpace()
+        end
     end
 end
 

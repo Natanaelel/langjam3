@@ -8,11 +8,13 @@ class Transpiler
     end
 
     def f(node)
-        case node["type"]
+        type = node["type"]
+        value = node["value"]
+        case type
         when "program"
             node["program"].map{|expr| f(expr) }.join("\n")
         when "identifier"
-            node["value"]
+            value
         when "method"
             "%s.%s(%s)" % [
                 f(node["self"]),
@@ -23,15 +25,13 @@ class Transpiler
             method_name = node["name"]
             arguments = node["args"].map{|x| f(x) }
             self_name = rand_name()
-            res = "lambda{ | %s | %s.%s(%s) }" % [self_name, self_name, method_name, arguments.join(", ")]
-            res = "&" + res if node["as_arg"]
-            res
+            "lambda{ | %s | %s.%s(%s) }" % [self_name, self_name, method_name, arguments.join(", ")]
         when "int", "float"
-            node["value"]
+            value
         when "literal"
-            f node["value"]
+            f value
         when "array"
-            "[#{node["value"].map{|x| f x }.join(", ")}]"
+            "[#{value.map{|x| f x }.join(", ")}]"
         when "assignment"
             f(node["left"]) + " = " + f(node["right"])
         when "nil"
@@ -39,11 +39,14 @@ class Transpiler
         when "binary_operation"
             "(" + f(node["left"]) + " " + node["operator"] + " " + f(node["right"]) + ")"
         when "call"
+            if node["args"].empty? && !node["parens"]
+                return f(node["func"]) + ".try_call(" + node["args"].map{|x| f x }.join(", ") + ")"
+            end
             f(node["func"]) + ".call(" + node["args"].map{|x| f x }.join(", ") + ")"
-        when "string"; "\"#{node["value"]}\""
-        when "string_interpolate_start"; "\"#{node["value"]}#\{"
-        when "string_interpolate_middle"; "}#{node["value"]}#\{"
-        when "string_interpolate_end"; "}#{node["value"]}\""
+        when "string"; "\"#{value}\""
+        when "string_interpolate_start"; "\"#{value}#\{"
+        when "string_interpolate_middle"; "}#{value}#\{"
+        when "string_interpolate_end"; "}#{value}\""
         when "prefix"
             if %w"++ --".include?(node["operator"])
                 operand = f(node["right"])
@@ -58,13 +61,39 @@ class Transpiler
             end
             "<postfix>"
         when "amp_identifier"
-            node["value"]
+            value
         when "amp_method"
-            "%s.method(\"%s\")" % [
+            args = node["args"]
+            if args.nil?
+                return "%s.method(\"%s\")" % [
+                    f(node["self"]),
+                    node["name"]
+                ]
+            end
+            "%s.%s(%s)" % [
                 f(node["self"]),
-                node["name"]
+                node["name"],
+                node["args"].map{|x| f(x) }.join(", ")
             ]
+        when "special_dollar"
+            value
+        when "func"
+            args = node["args"].map{|x|f x}.join(", ")
+            argc = node["args"].size
+            var = rand_name()
+            return "lambda{|*#{var}| #{f(node["body"])} }" if argc == 0
+            return "lambda{|#{args}| #{f(node["body"])} }" if argc == 1
+            "lambda{|*#{var}| #{args} = #{var}; #{f(node["body"])} }"
+        # when "func"
+        #     # "|%s|%s" % [node["args"].map{|x|f x}.join(", "), f(node["body"])]
+        #     args = node["args"]
+        #     p args
+        #     if args.empty?
+        #         return "lambda{%s}" % f(node["body"])
+        #     end
+        #     "lambda{|%s|%s}" % [args.map{|x|f x}.join(", "), f(node["body"])]
         else
+            puts "can't stringify"
             p node
             p "no"
         end
