@@ -1,3 +1,5 @@
+LOG = true
+
 PRECEDENCE = {
     "="=> 2,
     "||"=> 4,
@@ -60,16 +62,32 @@ class Parser
     def parseExpression(as_arg = false) 
         expression = parseAtom(as_arg)
         # expression = parse_args_no_paren(expression)
-        p ["expr parseatom", expression]
+        p ["expr parseatom", expression] if LOG
         expression = maybe_call(expression, call_need_parens(expression))
-        p ["expr maybecall", expression, call_need_parens(expression)]
+        p ["expr maybecall", expression, call_need_parens(expression)] if LOG
         expression = maybe_method(expression)
-        p ["expr maybemethod", expression]
+        p ["expr maybemethod", expression] if LOG
         expression = maybe_binary(expression, 0)
-        p ["expr binary", expression]
-        p "expr: #{expression}"
+        p ["expr binary", expression] if LOG
+        p "expr: #{expression}" if LOG
         return expression
         # call is making them all nil
+    end
+    def parseParenExpression()
+        next_token()
+        expressions = []
+        loop do
+            if isNextType("right_paren")
+                next_token()
+                return {
+                    "type" => "expressions",
+                    "value" => expressions
+                }
+            end
+            expression = parseExpression()
+            expressions << expression
+        end
+
     end
     def parseAtom(as_arg = false)
         return {"type"=> "nil"} if @tokens.size == 0 
@@ -77,12 +95,9 @@ class Parser
         first = @tokens[0]
         type = first["type"]
         value = first["value"]
-        puts "first: #{first}"
+        puts "first: #{first}" if LOG
         if type == "left_paren"
-            next_token()
-            expression = parseExpression()
-            skipNextType("right_paren")
-            return expression
+            return parseParenExpression()
         end
         
         if type =~ /(int|float|string|bool|nil)/
@@ -111,7 +126,7 @@ class Parser
             return parseAtom()
         end
         if value == "[" 
-            puts "delimited [ ] ,"
+            puts "delimited [ ] ," if LOG
             values = delimited("[", "]", [","], method(:parseExpression))
             return {
                 "type" => "array",
@@ -129,14 +144,14 @@ class Parser
         if type == "operator"
 
             # check for (|args|body) function
-            puts "in prefix"
-            p value
+            puts "in prefix" if LOG
+            p value if LOG
             if value == "|" || value == "||"
                 return parse_func()
             end
 
             # else prefix operator
-            puts "prefix"
+            puts "prefix" if LOG
             next_token()
             return {
                 "type" => "prefix",
@@ -152,8 +167,8 @@ class Parser
             next_token()
             return first
         end
-        puts("didn't parse:")
-        puts(first)
+        puts("didn't parse:") if LOG
+        puts(first) if LOG
         throw "Didn't parse an atom"
     
     end
@@ -169,7 +184,7 @@ class Parser
         if @tokens[0]&.[]("value") == value
             return @tokens[0] && @tokens.shift()
         end
-        puts "can't skip #{value}, next value is #{@tokens[0]&.[]("value")}"
+        puts "can't skip #{value}, next value is #{@tokens[0]&.[]("value")}" if LOG
         throw "Invalid value to skip"
     end
 
@@ -187,8 +202,7 @@ class Parser
         skipNextValue(start) if start
         
         while @tokens.length > 0
-            # p ["curr parsed", parsed, @tokens[0]]
-            # skipAllSpace() # here ofc
+            skipAllWhiteSpace()
             break if String === eend ? isNextValue(eend) : @tokens[0]["value"] =~ eend #this should stop v
             
             if(first_iteration)
@@ -198,14 +212,15 @@ class Parser
                 # now it says it collected /demilited "a", but then keeps looking, doesn't see newline
                 #  p ["is next val", separator_value, isNextValue(separator_value)]
                 # p ["real next val", @tokens[0]]
+                skipAllWhiteSpace()
                 if(separator_value && isNextValue(separator_value)) # where is this false  #this from being false ri ght?
                     # nil is false i think if it's false that won't run
                     # nil is just false in ruby
-                    puts("skipping next '#{separator_value}'")
+                    puts("skipping next '#{separator_value}'") if LOG
                     skipNextValue(separator_value)
                 else
-                    puts("skipping next '#{separator_type}'")
-                    puts(separator_value)
+                    LOG && puts("skipping next '#{separator_type}'")
+                    puts(separator_value) if LOG
                     skipNextType(separator_type) # skip nil?
                 end
             end
@@ -224,17 +239,24 @@ class Parser
     
         # skipNextValue(eend)
         next_token()
-        p @tokens[0]
+        p @tokens[0] if LOG
         "return from delimited"
         return parsed
     end
     
     def skipAllSpace()
-        skipNextType("whitespace") while isNextType("whitespace")
+        skipped = false
+        (skipped = true; next_token()) while isNextType("whitespace")
+        skipped
+    end
+    def skipAllWhiteSpace()
+        skipped = false
+        (skipped = true; next_token()) while isNextType("whitespace") || isNextType("newline")
+        skipped
     end
     def skipAllHoriSpace()
         skipped = false
-        (skipped = true; skipNextType("whitespace")) while isNextType("whitespace") && !(@tokens[0]["value"] =~ /\n/)
+        (skipped = true; skipNextType("whitespace")) while isNextType("whitespace")
         skipped
     end
 
@@ -246,7 +268,7 @@ class Parser
 
         # p ["in maybe binary is operator?", is_operator]
         if(is_operator)
-            p operator["value"]
+            p operator["value"] if LOG
             other_precedence = PRECEDENCE[operator["value"]]
             # comma isn't operator right? it's syntax
             # you didn't pass in the type for the separator
@@ -307,11 +329,11 @@ class Parser
         %w"~ !".include?(op)
     end
     def maybe_call(expression, parens_needed = true)
-        p ["in maybe_call", expression, parens_needed]
+        p ["in maybe_call", expression, parens_needed] if LOG
         
         if isNextType("left_paren") 
             ret = parse_call(expression)
-            p "ret from maybe_call with parens: #{ret}"
+            p "ret from maybe_call with parens: #{ret}" if LOG
             return ret
         elsif !parens_needed
             skipped_space = skipAllHoriSpace()
@@ -320,11 +342,11 @@ class Parser
             return expression if @tokens.empty?
             non_whitespace = @tokens.drop_while{|token| token["type"] == "whitespace"}
             # if expression["type"] == "identifier" && !%w"operator dot newline semicolin right_square".include?(@tokens[0]["type"])
-            if expression["type"] == "identifier" && !%w"operator dot".include?(@tokens[0]["type"])
+            if expression["type"] == "identifier" && !%w"operator dot newline semicolon right_square right_paren".include?(@tokens[0]["type"])
                 return parse_args_no_paren(expression)
             # elsif expression["type"] == "identifier" && skipped_space && is_prefix_op(non_whitespace[0]["value"]) && non_whitespace[1]["type"] !~ /(whitespace|newline)/
             elsif expression["type"] == "identifier" && (is_prefix_only_op(non_whitespace[0]["value"]) || (skipped_space && is_prefix_op(non_whitespace[0]["value"]))) && non_whitespace[1]["type"] !~ /(whitespace|newline)/
-                puts "prefix arg no paren"
+                puts "prefix arg no paren" if LOG
                 return parse_args_no_paren(expression)
             else
                 return expression
@@ -359,22 +381,22 @@ class Parser
                     "func" => expression,
                     "args" => args
                 }
-                p "ret from maybe_call no parens: #{ret}"
+                p "ret from maybe_call no parens: #{ret}" if LOG
                 return ret
             end       
         end
-        p "ret from maybe_call no call: #{expression}"
+        p "ret from maybe_call no call: #{expression}" if LOG
         return expression
 
     end
     def call_need_parens(expr)
-        puts "need parens?"
-        p expr
+        puts "need parens?" if LOG
+        p expr if LOG
         res = case expr["type"]
             when "identifier"; false
             else; true
         end
-        p res
+        p res if LOG
         return res
     end
     
@@ -422,7 +444,7 @@ class Parser
                     "type" => "method",
                     "self" => func,
                     "name" => name
-                })["args"] : []
+                })["args"] : nil
             }    
         end
     end
@@ -438,10 +460,18 @@ class Parser
         end
     end
     def parse_args_no_paren(func)
-        puts "parsing name #{func} args, no parens"
+        puts "parsing name #{func} args, no parens" if LOG
         args = []
         loop do
-            if isNextType("newline") || isNextValue(";") || isNextType("dot")# || isNextValue(")")
+            # if isNextType("right_paren")
+            #     return {
+            #         "type" => "call",
+            #         "func" => func,
+            #         "args" => args
+            #     }
+            # end
+            skipAllSpace()
+            if isNextType("newline") || isNextValue(";") || isNextType("dot") || isNextValue(")")
                 return {
                     "type" => "call",
                     "func" => func,
@@ -454,7 +484,7 @@ class Parser
             end
             expr = parseExpression(true)
             args << expr
-            puts "parsed no-paren arg: #{expr}"
+            puts "parsed no-paren arg: #{expr}" if LOG
             skipAllHoriSpace()
             if isNextValue(",")
                 next_token()
@@ -479,8 +509,16 @@ class Parser
         else
             args = parse_func_args()
         end
-        puts "args:"
-        p args
+        puts "args:" if LOG
+        p args if LOG
+        skipAllWhiteSpace()
+        if isNextType("semicolon")
+            return {
+            "type" => "func",
+            "args" => args,
+            "body" => {"type" => "nil"}
+        }
+        end
         body = parseExpression()
         return {
             "type" => "func",
@@ -502,7 +540,7 @@ class Parser
                 skipAllHoriSpace()
                 arg = {
                     "type" => "splat",
-                    "ident" => @tokens[0]
+                    "value" => @tokens[0]
                 }
                 next_token()
             end

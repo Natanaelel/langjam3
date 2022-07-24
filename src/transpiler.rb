@@ -35,13 +35,13 @@ class Transpiler
         when "assignment"
             f(node["left"]) + " = " + f(node["right"])
         when "nil"
-            ""
+            "nil"
         when "binary_operation"
             "(" + f(node["left"]) + " " + node["operator"] + " " + f(node["right"]) + ")"
         when "call"
-            if node["args"].empty? && !node["parens"]
-                return f(node["func"]) + ".try_call(" + node["args"].map{|x| f x }.join(", ") + ")"
-            end
+            # if node["args"].empty? && !node["parens"]
+            #     return f(node["func"]) + ".try_call(" + node["args"].map{|x| f x }.join(", ") + ")"
+            # end
             f(node["func"]) + ".call(" + node["args"].map{|x| f x }.join(", ") + ")"
         when "string"; "\"#{value}\""
         when "string_interpolate_start"; "\"#{value}#\{"
@@ -83,7 +83,8 @@ class Transpiler
             var = rand_name()
             return "lambda{|*#{var}| #{f(node["body"])} }" if argc == 0
             return "lambda{|#{args}| #{f(node["body"])} }" if argc == 1
-            "lambda{|*#{var}| #{args} = #{var}; #{f(node["body"])} }"
+            # "lambda{|*#{var}| #{args} = #{var}; #{f(node["body"])} }"
+            "lambda{|*#{var}| #{args} = #{var}.size == 1 ? #{var}[0] : #{var}; #{f(node["body"])} }"
         # when "func"
         #     # "|%s|%s" % [node["args"].map{|x|f x}.join(", "), f(node["body"])]
         #     args = node["args"]
@@ -92,6 +93,11 @@ class Transpiler
         #         return "lambda{%s}" % f(node["body"])
         #     end
         #     "lambda{|%s|%s}" % [args.map{|x|f x}.join(", "), f(node["body"])]
+        when "expressions"
+            value.empty? ? "nil" : "(" + value.map{|x|f x}.join("; ") + ")"
+        when "splat"
+            p node
+            "*"  + f(value)
         else
             puts "can't stringify"
             p node

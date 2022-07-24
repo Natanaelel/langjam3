@@ -1,8 +1,9 @@
 module Enumerable
     alias _old_map map; def map(block = nil, &ob) = ob ? _old_map(&ob) : block ? _old_map(&block) : _old_map # &op keep compatibility with interals that use #map, for example Enumerator#with_index
-
+    
 end
 class Enumerator
+    alias _old_each each; def each(block = nil, &ob) = ob ? _old_each(&ob) : block ? _old_each(&block) : _old_each # &op keep compatibility with interals that use #map, for example Enumerator#with_index
     alias _old_with_index with_index; def with_index(block = nil); block ? _old_with_index(&block) : _old_with_index end
 end
 class Array
@@ -23,8 +24,8 @@ class Integer
     alias _old_times times; def times(block = nil) = block ? _old_times(&block) : _old_times
 end
 class Object
-    def try_call(*args, &b)
-        call(*args, &b) rescue self
+    def then(block)
+        block.call(self)
     end
 end
 def lambify(name)
@@ -49,13 +50,5 @@ rand = lambify("rand")
 # this code runs, try it!
 
 ## end of runtime.fixer.thing.rb
-double = lambda{|x| (x * 2) }
-triple = lambda{|a| (a * 3) }
-add = lambda{|*var_56857260946835447966| x, y = var_56857260946835447966; (x + y) }
-p.call(double.call(10))
-puts.call(triple.call(123))
-p.call(add.call(1, 2))
-dosomething = lambda{|*var_13726450700024932538| puts.call(rand.call(10)) }
-f = dosomething.try_call()
-p.call(f.try_call())
-puts.call(".")
+p.call([1, 2, 3].then(lambda{|*var_48238534831655715772| x, *y = var_48238534831655715772.size == 1 ? var_48238534831655715772[0] : var_48238534831655715772; [x, y] }))
+nil

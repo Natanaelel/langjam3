@@ -1,8 +1,9 @@
 module Enumerable
     alias _old_map map; def map(block = nil, &ob) = ob ? _old_map(&ob) : block ? _old_map(&block) : _old_map # &op keep compatibility with interals that use #map, for example Enumerator#with_index
-
+    
 end
 class Enumerator
+    alias _old_each each; def each(block = nil, &ob) = ob ? _old_each(&ob) : block ? _old_each(&block) : _old_each # &op keep compatibility with interals that use #map, for example Enumerator#with_index
     alias _old_with_index with_index; def with_index(block = nil); block ? _old_with_index(&block) : _old_with_index end
 end
 class Array
@@ -23,8 +24,8 @@ class Integer
     alias _old_times times; def times(block = nil) = block ? _old_times(&block) : _old_times
 end
 class Object
-    def try_call(*args, &b)
-        call(*args, &b) rescue self
+    def then(block)
+        block.call(self)
     end
 end
 def lambify(name)
